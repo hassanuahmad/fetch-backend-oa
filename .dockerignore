@@ -1,0 +1,8 @@
+*.exe
+*.out
+*.log
+*.tmp
+node_modules
+.git
+vendor
+.DS_Store
