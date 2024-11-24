@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"math"
 	"net/http"
 	"strconv"
@@ -14,10 +15,27 @@ type IdResponse struct {
 	Id string `json:"id"`
 }
 
+func handleGetPoints(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	receiptId := vars["id"]
+
+	receipt, exists := database[receiptId]
+	if !exists {
+		http.Error(w, "receipt not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]int{"points": receipt.Points}); err != nil {
+		http.Error(w, "error encoding response", http.StatusInternalServerError)
+		return
+	}
+}
+
 func handleProcessReceipts(w http.ResponseWriter, r *http.Request) {
 	var payloadData Receipt
 	if err := json.NewDecoder(r.Body).Decode(&payloadData); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -43,7 +61,7 @@ func handleProcessReceipts(w http.ResponseWriter, r *http.Request) {
 	// 3
 	multiple25, err := strconv.ParseFloat(evenOddTotal, 64)
 	if err != nil {
-		fmt.Printf("Could not convery multiple25 to an int: %s\n", err)
+		fmt.Printf("could not convery multiple25 to an int: %s\n", err)
 	}
 
 	z := math.Mod(multiple25, 0.25)
@@ -60,7 +78,7 @@ func handleProcessReceipts(w http.ResponseWriter, r *http.Request) {
 		if len(trimmedDesc)%3 == 0 {
 			price, err := strconv.ParseFloat(item.Price, 64)
 			if err != nil {
-				fmt.Printf("Error parsing price: %s\n", err)
+				fmt.Printf("error parsing price: %s\n", err)
 				continue
 			}
 			points += int(math.Ceil(price * 0.2))
@@ -95,8 +113,6 @@ func handleProcessReceipts(w http.ResponseWriter, r *http.Request) {
 	if (purchaseHour == 14 && purchaseMin != 00) || purchaseHour == 15 {
 		points += 10
 	}
-
-	fmt.Printf("Points: %d", points)
 
 	receiptId := "receipt" + strconv.Itoa(len(database)+1)
 	payloadData.Points = points
